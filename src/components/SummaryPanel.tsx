@@ -27,7 +27,7 @@ function StatCard({ title, value, icon, subtitle, variant = 'default' }: StatCar
         success: 'bg-emerald-50/50 border-emerald-200/60 dark:bg-emerald-950/20 dark:border-emerald-900/50',
         danger: 'bg-rose-50/50 border-rose-200/60 dark:bg-rose-950/20 dark:border-rose-900/50',
         warning: 'bg-amber-50/50 border-amber-200/60 dark:bg-amber-950/20 dark:border-amber-900/50',
-        primary: 'bg-primary/5 border-primary/20 text-primary-foreground',
+        primary: 'bg-primary/5 border-primary/20 text-primary',
     };
 
     const iconStyles = {
