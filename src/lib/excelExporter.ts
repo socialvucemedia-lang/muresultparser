@@ -3,7 +3,7 @@
  */
 
 import * as XLSX from 'xlsx';
-import type { StudentRecord, AnalysisSummary, ExportOptions } from '@/src/types/student';
+import type { StudentRecord, AnalysisSummary, ExportOptions, SubjectMarks } from '@/src/types/student';
 import { getKTSummary } from './ktDetector';
 
 /**
@@ -33,96 +33,160 @@ export function exportToExcel(
 }
 
 /**
- * Create the main students data sheet
+ * All 14 subject codes in PDF order with their names
+ * isLab = true → only show TOT column in Excel
+ */
+const ALL_SUBJECTS = [
+    { code: '10411', abbr: 'AM-I', name: 'Applied Mathematics-I', isLab: false },
+    { code: '10412', abbr: 'AP', name: 'Applied Physics', isLab: false },
+    { code: '10413', abbr: 'AC', name: 'Applied Chemistry', isLab: false },
+    { code: '10414', abbr: 'EM', name: 'Engineering Mechanics', isLab: false },
+    { code: '10415', abbr: 'BEE', name: 'Basic Electrical & Electronics Engineering', isLab: false },
+    { code: '10416', abbr: 'APL', name: 'Applied Physics Lab', isLab: true },
+    { code: '10417', abbr: 'ACL', name: 'Applied Chemistry Lab', isLab: true },
+    { code: '10418', abbr: 'EML', name: 'Engineering Mechanics Lab', isLab: true },
+    { code: '10419', abbr: 'BEEL', name: 'Basic Electrical & Electronics Engineering Lab', isLab: true },
+    { code: '10420', abbr: 'PCE', name: 'Professional Communication Ethics', isLab: true },
+    { code: '10421', abbr: 'PCETW', name: 'Professional Communication Ethics TW', isLab: true },
+    { code: '10422', abbr: 'EW-I', name: 'Engineering Workshop-I', isLab: true },
+    { code: '10423', abbr: 'CP', name: 'C Programming', isLab: true },
+    { code: '10424', abbr: 'IUHV', name: 'Induction cum Universal Human Values', isLab: true },
+];
+
+/**
+ * Per-subject column suffixes
+ */
+const SUBJECT_COLUMNS = ['T1', 'O1', 'E1', 'I1', 'TOT', 'Grade', 'KT'] as const;
+
+/**
+ * Map column suffix to SubjectMarks field
+ */
+function getMarkValue(marks: SubjectMarks, col: typeof SUBJECT_COLUMNS[number]): string | number {
+    switch (col) {
+        case 'T1': return marks.termWork ?? '';
+        case 'O1': return marks.oral ?? '';
+        case 'E1': return marks.external ?? '';
+        case 'I1': return marks.internal ?? '';
+        case 'TOT': return marks.total ?? '';
+        case 'Grade': return marks.grade || '';
+        case 'KT': return '';  // handled at subject level
+    }
+}
+
+/**
+ * Create the main students data sheet with full subject breakdown
+ * Format: Student Info | 14 subjects × 7 columns | Summary
  */
 function createStudentSheet(students: StudentRecord[], includeSubjects: boolean): XLSX.WorkSheet {
-    // Define headers
-    const headers = [
-        'Sr. No.',
-        'Seat No',
-        'Name',
-        'Gender',
-        'ERN',
-        'College',
-        'Total Marks',
-        'Result',
-        'SGPA',
-        'Total KT',
-        'Internal KT',
-        'External KT',
-        'Term Work KT',
-        'Failed Subjects',
-    ];
-
-    if (includeSubjects) {
-        // Add subject columns
-        headers.push(
-            'Applied Maths-I',
-            'Applied Physics',
-            'Applied Chemistry',
-            'Engineering Mechanics',
-            'Basic Electrical',
-            'Physics Lab',
-            'Chemistry Lab',
-            'Mechanics Lab',
-            'Electrical Lab',
-            'Prof. Comm. Ethics',
-            'Prof. Comm. TW',
-            'Workshop-I',
-            'C Programming',
-            'Human Values'
-        );
+    if (!students || students.length === 0) {
+        return XLSX.utils.aoa_to_sheet([['No data available']]);
     }
 
-    // Create rows
-    const rows = students.map((student, index) => {
+    // ── Build header row ──────────────────────────────────────────────
+    const headers: string[] = [
+        'Seat No', 'Name', 'Status', 'Gender', 'ERN', 'College',
+    ];
+
+    // Add columns per subject: full breakdown for theory, just TOT for labs
+    ALL_SUBJECTS.forEach(subj => {
+        if (subj.isLab) {
+            headers.push(`${subj.abbr} TOT`);
+        } else {
+            SUBJECT_COLUMNS.forEach(col => {
+                headers.push(`${subj.abbr} ${col}`);
+            });
+        }
+    });
+
+    // Summary columns at the end
+    headers.push('Total Marks', 'Result', 'Remark', 'SGPA');
+
+    // ── Build data rows ───────────────────────────────────────────────
+    const dataRows = students.map(student => {
         const row: (string | number)[] = [
-            index + 1,
-            student.seatNumber,
-            student.name,
+            student.seatNumber || '',
+            student.name || '',
+            student.status || '',
             student.gender || '',
             student.ern || '',
-            student.college,
-            student.totalMarks,
-            student.result,
-            student.sgpa,
-            student.kt.totalKT,
-            student.kt.internalKT,
-            student.kt.externalKT,
-            student.kt.termWorkKT,
-            student.kt.failedSubjects.join(', '),
+            student.college || '',
         ];
 
-        if (includeSubjects) {
-            // Add subject totals
-            for (const subject of student.subjects) {
-                row.push(`${subject.marks.total} (${subject.marks.grade})`);
+        // Per-subject marks
+        ALL_SUBJECTS.forEach(subDef => {
+            const subj = student.subjects.find(s => s.code === subDef.code);
+
+            if (subDef.isLab) {
+                // Labs: only TOT column
+                row.push(subj?.marks?.total ?? '');
+            } else if (subj && subj.marks) {
+                // Theory: full T1, O1, E1, I1, TOT, Grade, KT
+                SUBJECT_COLUMNS.forEach(col => {
+                    if (col === 'KT') {
+                        row.push(subj.isKT ? 'KT' : '');
+                    } else {
+                        row.push(getMarkValue(subj.marks, col));
+                    }
+                });
+            } else {
+                // Theory subject not found – fill 7 empty cells
+                SUBJECT_COLUMNS.forEach(() => row.push(''));
             }
-        }
+        });
+
+        // Summary columns
+        row.push(
+            student.totalMarks || '',
+            student.result || '',
+            student.kt?.hasKT ? `KT (${student.kt.totalKT})` : '',
+            student.sgpa || '',
+        );
 
         return row;
     });
 
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    // ── Create worksheet ──────────────────────────────────────────────
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
 
-    // Set column widths
-    ws['!cols'] = [
-        { wch: 6 },   // Sr. No.
-        { wch: 10 },  // Seat No
-        { wch: 25 },  // Name
+    // ── Column widths ─────────────────────────────────────────────────
+    const colWidths: XLSX.ColInfo[] = [
+        { wch: 12 },  // Seat No
+        { wch: 28 },  // Name
+        { wch: 10 },  // Status
         { wch: 8 },   // Gender
-        { wch: 22 },  // ERN
-        { wch: 40 },  // College
-        { wch: 12 },  // Total Marks
-        { wch: 8 },   // Result
-        { wch: 8 },   // SGPA
-        { wch: 10 },  // Total KT
-        { wch: 12 },  // Internal KT
-        { wch: 12 },  // External KT
-        { wch: 14 },  // Term Work KT
-        { wch: 40 },  // Failed Subjects
+        { wch: 24 },  // ERN
+        { wch: 20 },  // College
     ];
+
+    // Column widths per subject: 7 for theory, 1 for labs
+    ALL_SUBJECTS.forEach(subj => {
+        if (subj.isLab) {
+            colWidths.push({ wch: 8 });   // TOT only
+        } else {
+            colWidths.push(
+                { wch: 8 },   // T1
+                { wch: 8 },   // O1
+                { wch: 8 },   // E1
+                { wch: 8 },   // I1
+                { wch: 8 },   // TOT
+                { wch: 8 },   // Grade
+                { wch: 6 },   // KT
+            );
+        }
+    });
+
+    // Summary columns
+    colWidths.push(
+        { wch: 12 },  // Total Marks
+        { wch: 10 },  // Result
+        { wch: 12 },  // Remark
+        { wch: 8 },   // SGPA
+    );
+
+    ws['!cols'] = colWidths;
+
+    // Freeze first row (headers) and first 2 columns (Seat No + Name)
+    ws['!freeze'] = { xSplit: 2, ySplit: 1, topLeftCell: 'C2' };
 
     return ws;
 }
@@ -132,32 +196,42 @@ function createStudentSheet(students: StudentRecord[], includeSubjects: boolean)
  */
 function createSummarySheet(analysis: AnalysisSummary): XLSX.WorkSheet {
     const data = [
-        ['Analysis Summary'],
+        ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'],
+        ['          RESULT ANALYSIS SUMMARY          '],
+        ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'],
         [],
+        ['📊 Overall Statistics'],
+        ['─────────────────────────────────────────'],
         ['Metric', 'Value'],
         ['Total Students', analysis.totalStudents],
-        ['Passed', analysis.passedCount],
-        ['Failed', analysis.failedCount],
+        ['Students Passed', analysis.passedCount],
+        ['Students Failed', analysis.failedCount],
         ['Pass Percentage', `${analysis.passPercentage}%`],
         [],
-        ['Marks Analysis'],
+        ['📈 Marks Analysis'],
+        ['─────────────────────────────────────────'],
         ['Highest Marks', analysis.highestMarks],
         ['Lowest Marks', analysis.lowestMarks],
         ['Average Marks', analysis.averageMarks],
         ['Average SGPA', analysis.averageSGPA],
         [],
-        ['KT Analysis'],
+        ['⚠️ KT Analysis'],
+        ['─────────────────────────────────────────'],
         ['Students with KT', analysis.studentsWithKT],
         ['Average KT per Student', analysis.averageKTPerStudent],
         [],
-        ['Marks Distribution'],
+        ['🎓 Marks Distribution'],
+        ['─────────────────────────────────────────'],
+        ['Category', 'Count'],
         ['Distinction (≥75%)', analysis.marksDistribution.distinction],
         ['First Class (≥60%)', analysis.marksDistribution.firstClass],
         ['Second Class (≥50%)', analysis.marksDistribution.secondClass],
         ['Pass Class (≥40%)', analysis.marksDistribution.passClass],
         ['Fail (<40%)', analysis.marksDistribution.fail],
         [],
-        ['KT Distribution'],
+        ['📋 KT Distribution'],
+        ['─────────────────────────────────────────'],
+        ['KT Count', 'Students'],
         ['No KT', analysis.ktDistribution.noKT],
         ['1 KT', analysis.ktDistribution.oneKT],
         ['2 KT', analysis.ktDistribution.twoKT],
@@ -168,8 +242,8 @@ function createSummarySheet(analysis: AnalysisSummary): XLSX.WorkSheet {
 
     // Set column widths
     ws['!cols'] = [
-        { wch: 25 },
-        { wch: 15 },
+        { wch: 30 },
+        { wch: 20 },
     ];
 
     return ws;

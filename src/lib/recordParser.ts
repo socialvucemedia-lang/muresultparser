@@ -40,6 +40,14 @@ const SUBJECT_CODES = Object.keys(SUBJECT_NAMES);
 const NUM_SUBJECTS = SUBJECT_CODES.length;
 
 /**
+ * Validate ERN format: must be MU + exactly 16 digits = 18 chars total
+ * Example: MU0341120250220778
+ */
+function isValidErn(ern: string): boolean {
+    return /^MU\d{16}$/.test(ern);
+}
+
+/**
  * Parse lines to find student blocks
  * A student block starts with a seat number line and ends at the next seat number or EOF
  */
@@ -84,7 +92,7 @@ export function findStudentBlocks(lines: string[], pageNumber: number): RawStude
     // Post-process blocks to fix split ERN issue
     // ERN sometimes appears at the end of student N's block but belongs to student N+1
     // because PDF text extraction splits "(MU0341...)" across block boundaries
-    const trailingErnPattern = /\(([A-Z]{2}\d{16,20})(?:\s|$)/;
+    const trailingErnPattern = /\(?(MU\d{16})\)?/;
 
     for (let i = 0; i < blocks.length - 1; i++) {
         const blockLines = blocks[i].text.split('\n');
@@ -92,7 +100,7 @@ export function findStudentBlocks(lines: string[], pageNumber: number): RawStude
         for (let j = Math.max(10, blockLines.length - 8); j < blockLines.length; j++) {
             const line = blockLines[j];
             const match = line.match(trailingErnPattern);
-            if (match) {
+            if (match && isValidErn(match[1])) {
                 // This ERN belongs to the NEXT student - attach it directly to that block
                 blocks[i + 1].pendingErn = match[1];
                 break;
@@ -220,40 +228,59 @@ function parseHeaderLine(lines: string[], pendingErn?: string): {
         }
     }
 
-    // Extract ERN (in parentheses) - handle various formats
-    // ERN format: MU followed by 16-20 digits, e.g., MU0341120250220778
+    // Extract ERN - strictly require MU prefix + exactly 16 digits
+    // ERN format: MU0341120250220778 (MU + 16 digits = 18 chars total)
     let ern: string | null = null;
 
-    // Search all lines in the block for ERN
-    for (let i = 0; i < lines.length && !ern; i++) {
+    // Search lines in the block for ERN (limit to first 5 lines where header info lives)
+    for (let i = 0; i < Math.min(lines.length, 5) && !ern; i++) {
         const line = lines[i];
 
         // Pattern 1: Full ERN in parentheses (MU0341120250220778)
-        const fullMatch = line.match(/\(([A-Z]{2}\d{16,20})\)/);
-        if (fullMatch) {
+        const fullMatch = line.match(/\((MU\d{16})\)/);
+        if (fullMatch && isValidErn(fullMatch[1])) {
             ern = fullMatch[1];
             break;
         }
 
-        // Pattern 2: ERN with opening paren, followed by space or end: (MU0341120250220778 
-        const openMatch = line.match(/\(([A-Z]{2}\d{16,20})(?:\s|$)/);
-        if (openMatch) {
+        // Pattern 2: ERN with opening paren but no closing: (MU0341120250220778
+        const openMatch = line.match(/\((MU\d{16})(?:\s|$)/);
+        if (openMatch && isValidErn(openMatch[1])) {
             ern = openMatch[1];
             break;
         }
 
-        // Pattern 3: ERN anywhere in line without parentheses (rare but possible)
-        // Only match if it looks like standalone ERN code
-        const standaloneMatch = line.match(/(?:^|\s)([A-Z]{2}\d{16,20})(?:\s|$)/);
-        if (standaloneMatch) {
-            ern = standaloneMatch[1];
-            break;
+        // Pattern 3: Cross-line ERN assembly
+        // PDF sometimes splits "(MU03411" on line N and "20250220778)" on line N+1
+        const partialMatch = line.match(/\((MU\d{1,15})\s*$/);
+        if (partialMatch && i + 1 < lines.length) {
+            const nextLine = lines[i + 1].trim();
+            const remainingDigits = nextLine.match(/^(\d+)\)?/);
+            if (remainingDigits) {
+                const assembled = partialMatch[1] + remainingDigits[1];
+                if (isValidErn(assembled)) {
+                    ern = assembled;
+                    break;
+                }
+            }
+        }
+    }
+
+    // If not found in first 5 lines, do a broader search (but still strict MU pattern)
+    if (!ern) {
+        for (let i = 5; i < lines.length && !ern; i++) {
+            const line = lines[i];
+            const match = line.match(/\(?(MU\d{16})\)?/);
+            if (match && isValidErn(match[1])) {
+                ern = match[1];
+                break;
+            }
         }
     }
 
     // If no ERN found in this block, use the pending ERN from previous block
     // This handles the case where PDF extraction splits "(MU...)" across block boundaries
-    if (!ern && pendingErn) {
+    if (!ern && pendingErn && isValidErn(pendingErn)) {
         ern = pendingErn;
     }
 

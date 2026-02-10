@@ -34,6 +34,7 @@ export async function parseResultPdf(
 
     const students: StudentRecord[] = [];
     const seenSeats = new Set<string>();
+    const seenErns = new Set<string>();
     let totalPages = 0;
     let currentPage = 0;
 
@@ -77,6 +78,14 @@ export async function parseResultPdf(
             for (const block of blocks) {
                 const student = parseStudentBlock(block);
                 if (student && !seenSeats.has(student.seatNumber)) {
+                    // ERN dedup: if this ERN was already assigned, null it out
+                    if (student.ern && seenErns.has(student.ern)) {
+                        console.warn(`Duplicate ERN ${student.ern} for seat ${student.seatNumber} - clearing`);
+                        student.ern = null;
+                    } else if (student.ern) {
+                        seenErns.add(student.ern);
+                    }
+
                     students.push(student);
                     seenSeats.add(student.seatNumber);
                     updateProgress({ studentsFound: students.length });
