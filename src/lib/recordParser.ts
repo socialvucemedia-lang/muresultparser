@@ -6,7 +6,6 @@
 import type {
     StudentRecord,
     Subject,
-    SubjectMarks,
     RawStudentBlock,
     SubjectMapping,
     KTType,
@@ -195,11 +194,9 @@ function parseHeaderLine(lines: string[], pendingErn?: string): {
     const seatNumber = seatMatch[1];
 
     // Find the part after seat number
-    let afterSeat = firstLine.substring(seatMatch[0].length).trim();
+    const afterSeat = firstLine.substring(seatMatch[0].length).trim();
 
     // Look for name in subsequent lines if first line is just the seat number
-    let nameLine = afterSeat;
-
     // The name is usually after the first line with seat number
     // Look for patterns like "1402781    DISHA ATMARAM MASAYE    Regular    FEMALE    ..."
 
@@ -555,35 +552,47 @@ function parseSummary(lines: string[]): {
     let cgpa: number | null = null;
 
     for (const line of lines) {
+        const normalizedLine = line.replace(/\s+/g, ' ').trim();
+
         // Check for MARKS (XXX) RESULT pattern
         // Format: MARKS    (371) PASS or MARKS    (107.0) FAIL
-        const marksResultMatch = line.match(/MARKS\s*\(?([\d.]+)\)?\s*(PASS|FAIL(?:ED)?)/i);
+        const marksResultMatch = normalizedLine.match(/MARKS\s*\(?([\d.]+)\)?\s*(PASS|FAIL(?:ED)?)/i);
         if (marksResultMatch) {
             totalMarks = parseFloat(marksResultMatch[1]);
             result = marksResultMatch[2].toUpperCase().startsWith('PASS') ? 'PASS' : 'FAILED';
+
+            // Many gazettes include SGPA at the end of the same MARKS line.
+            const trailingNumbers = normalizedLine.match(/([\d.]+)\s+([\d.]+)\s*$/);
+            if (trailingNumbers) {
+                const candidate = parseFloat(trailingNumbers[2]);
+                if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                    sgpa = candidate;
+                }
+            }
         }
 
         // Also check for (XXX) PASS/FAILED format in TOT line
-        const totResultMatch = line.match(/\(([\d.]+)\)\s*(PASS|FAIL(?:ED)?)/i);
+        const totResultMatch = normalizedLine.match(/\(([\d.]+)\)\s*(PASS|FAIL(?:ED)?)/i);
         if (totResultMatch && totalMarks === 0) {
             totalMarks = parseFloat(totResultMatch[1]);
             result = totResultMatch[2].toUpperCase().startsWith('PASS') ? 'PASS' : 'FAILED';
         }
 
-        // Find SGPA at end - typically two decimal numbers at line end
-        // Format: totalCredits totalCreditPoints SGPA or just SGPA
-        const sgpaMatches = line.match(/([\d.]+)\s*$/);
-        if (sgpaMatches) {
-            const val = parseFloat(sgpaMatches[1]);
-            // SGPA should be between 0 and 10
-            if (val <= 10 && val >= 0) {
-                // Check if this looks like SGPA (followed by nothing or end)
-                const prevMatch = line.match(/([\d.]+)\s+([\d.]+)\s*$/);
-                if (prevMatch) {
-                    sgpa = parseFloat(prevMatch[2]);
-                } else {
-                    sgpa = val;
-                }
+        // Explicit SGPA extraction for edge-case formatting.
+        const explicitSgpaMatch = normalizedLine.match(/\bSGPA\s*[:=]?\s*([\d.]+)/i);
+        if (explicitSgpaMatch) {
+            const candidate = parseFloat(explicitSgpaMatch[1]);
+            if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                sgpa = candidate;
+            }
+        }
+
+        // Capture CGPA when available in-line.
+        const explicitCgpaMatch = normalizedLine.match(/\bCGPA\s*[:=]?\s*([\d.]+)/i);
+        if (explicitCgpaMatch) {
+            const candidate = parseFloat(explicitCgpaMatch[1]);
+            if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                cgpa = candidate;
             }
         }
     }
