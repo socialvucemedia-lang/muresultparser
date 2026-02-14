@@ -225,53 +225,18 @@ function parseHeaderLine(lines: string[], pendingErn?: string): {
         }
     }
 
-    // Extract ERN - strictly require MU prefix + exactly 16 digits
-    // ERN format: MU0341120250220778 (MU + 16 digits = 18 chars total)
+    // Extract ERN from header region only (avoid consuming trailing ERN from next student block).
+    // ERN format: MU + 16 digits.
     let ern: string | null = null;
+    const headerWindow = lines.slice(0, Math.min(lines.length, 10)).join(' ');
+    const compactHeaderWindow = headerWindow.replace(/\s+/g, '');
 
-    // Search lines in the block for ERN (limit to first 5 lines where header info lives)
-    for (let i = 0; i < Math.min(lines.length, 5) && !ern; i++) {
-        const line = lines[i];
-
-        // Pattern 1: Full ERN in parentheses (MU0341120250220778)
-        const fullMatch = line.match(/\((MU\d{16})\)/);
-        if (fullMatch && isValidErn(fullMatch[1])) {
-            ern = fullMatch[1];
-            break;
-        }
-
-        // Pattern 2: ERN with opening paren but no closing: (MU0341120250220778
-        const openMatch = line.match(/\((MU\d{16})(?:\s|$)/);
-        if (openMatch && isValidErn(openMatch[1])) {
-            ern = openMatch[1];
-            break;
-        }
-
-        // Pattern 3: Cross-line ERN assembly
-        // PDF sometimes splits "(MU03411" on line N and "20250220778)" on line N+1
-        const partialMatch = line.match(/\((MU\d{1,15})\s*$/);
-        if (partialMatch && i + 1 < lines.length) {
-            const nextLine = lines[i + 1].trim();
-            const remainingDigits = nextLine.match(/^(\d+)\)?/);
-            if (remainingDigits) {
-                const assembled = partialMatch[1] + remainingDigits[1];
-                if (isValidErn(assembled)) {
-                    ern = assembled;
-                    break;
-                }
-            }
-        }
-    }
-
-    // If not found in first 5 lines, do a broader search (but still strict MU pattern)
-    if (!ern) {
-        for (let i = 5; i < lines.length && !ern; i++) {
-            const line = lines[i];
-            const match = line.match(/\(?(MU\d{16})\)?/);
-            if (match && isValidErn(match[1])) {
-                ern = match[1];
-                break;
-            }
+    // Handles both contiguous and whitespace-split ERNs.
+    const directErnMatch = compactHeaderWindow.match(/MU\d{16}/i);
+    if (directErnMatch) {
+        const normalizedErn = directErnMatch[0].toUpperCase();
+        if (isValidErn(normalizedErn)) {
+            ern = normalizedErn;
         }
     }
 
@@ -398,6 +363,18 @@ function parseComponentRow(content: string): number[] {
  * Parse TOT row to extract total marks, GP, grade, credits, credit points
  * Handles various formats including Repeater students with blank columns
  */
+
+function parseTotalWithGrace(totalToken: string): number {
+    const base = parseInt(totalToken.replace(/\D/g, ''), 10);
+    if (Number.isNaN(base)) {
+        return 0;
+    }
+
+    // Gazette notation such as "77+" indicates one grace mark added.
+    const graceCount = (totalToken.match(/\+/g) || []).length;
+    return base + graceCount;
+}
+
 function parseTotRow(content: string): { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] {
     const subjects: { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] = [];
 
@@ -408,7 +385,7 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
     let match;
     while ((match = strictPattern.exec(content)) !== null) {
         subjects.push({
-            total: parseInt(match[1].replace('+', ''), 10),
+            total: parseTotalWithGrace(match[1]),
             gp: parseInt(match[2], 10),
             grade: match[3],
             credits: parseFloat(match[4]),
@@ -423,11 +400,11 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
 
     // Try alternative pattern for edge cases
     // Look for patterns like "36+ 4 D 2 8.0" with + marks
-    const altPattern = /(\d+)\+?\s+(\d+)\s+([ABCDFO][+]?)\s+([\d.]+)\s+([\d.]+)/g;
+    const altPattern = /(\d+\+?)\s+(\d+)\s+([ABCDFO][+]?)\s+([\d.]+)\s+([\d.]+)/g;
 
     while ((match = altPattern.exec(content)) !== null) {
         subjects.push({
-            total: parseInt(match[1], 10),
+            total: parseTotalWithGrace(match[1]),
             gp: parseInt(match[2], 10),
             grade: match[3],
             credits: parseFloat(match[4]),
@@ -442,14 +419,15 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
         let i = 0;
         while (i < tokens.length - 4) {
             // Look for: number, number, grade letter, number, number
-            const total = parseFloat(tokens[i]?.replace('+', '') || '');
+            const rawTotalToken = tokens[i] || ''
+            const total = parseTotalWithGrace(rawTotalToken);
             const gp = parseFloat(tokens[i + 1] || '');
             const grade = tokens[i + 2];
             const credits = parseFloat(tokens[i + 3] || '');
             const creditPoints = parseFloat(tokens[i + 4] || '');
 
             // Validate: total > 0, grade is a letter
-            if (!isNaN(total) && !isNaN(gp) && /^[ABCDFO][+]?$/i.test(grade) && !isNaN(credits) && !isNaN(creditPoints)) {
+            if (rawTotalToken && !Number.isNaN(total) && !isNaN(gp) && /^[ABCDFO][+]?$/i.test(grade) && !isNaN(credits) && !isNaN(creditPoints)) {
                 subjects.push({
                     total: Math.round(total),
                     gp: Math.round(gp),
