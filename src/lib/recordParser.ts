@@ -365,14 +365,10 @@ function parseComponentRow(content: string): number[] {
  */
 
 function parseTotalWithGrace(totalToken: string): number {
+    // Keep displayed PDF total as-is numerically (e.g. "77+" -> 77),
+    // so exports match the source gazette values.
     const base = parseInt(totalToken.replace(/\D/g, ''), 10);
-    if (Number.isNaN(base)) {
-        return 0;
-    }
-
-    // Gazette notation such as "77+" indicates one grace mark added.
-    const graceCount = (totalToken.match(/\+/g) || []).length;
-    return base + graceCount;
+    return Number.isNaN(base) ? 0 : base;
 }
 
 function parseTotRow(content: string): { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] {
