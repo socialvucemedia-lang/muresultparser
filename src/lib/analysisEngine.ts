@@ -34,8 +34,8 @@ export function generateAnalysis(students: StudentRecord[]): AnalysisSummary {
 
     // Calculate KT average
     const totalKTs = students.reduce((sum, s) => sum + s.kt.totalKT, 0);
-    const averageKTPerStudent = studentsWithKT.length > 0
-        ? Math.round((totalKTs / studentsWithKT.length) * 100) / 100
+    const averageKTPerStudent = totalStudents > 0
+        ? Math.round((totalKTs / totalStudents) * 100) / 100
         : 0;
 
     return {
