@@ -371,6 +371,89 @@ function parseTotalWithGrace(totalToken: string): number {
     return Number.isNaN(base) ? 0 : base;
 }
 
+interface SubjectComponents {
+    termWork: number | null;
+    oral: number | null;
+    external: number | null;
+    internal: number | null;
+}
+
+function reconcileComponentsWithTotal(
+    components: SubjectComponents,
+    total: number
+): SubjectComponents {
+    const entries: Array<{ key: keyof SubjectComponents; value: number }> = [];
+
+    (Object.keys(components) as Array<keyof SubjectComponents>).forEach((key) => {
+        const value = components[key];
+        if (value !== null) {
+            entries.push({ key, value });
+        }
+    });
+
+    if (entries.length <= 1) {
+        return components;
+    }
+
+    const fullSum = entries.reduce((sum, e) => sum + e.value, 0);
+    if (fullSum === total) {
+        return components;
+    }
+
+    const priority: Record<keyof SubjectComponents, number> = {
+        external: 4,
+        internal: 3,
+        termWork: 2,
+        oral: 1,
+    };
+
+    let bestMask = -1;
+    let bestCount = -1;
+    let bestWeight = -1;
+
+    const n = entries.length;
+    for (let mask = 1; mask < (1 << n); mask++) {
+        let sum = 0;
+        let count = 0;
+        let weight = 0;
+
+        for (let i = 0; i < n; i++) {
+            if (mask & (1 << i)) {
+                sum += entries[i].value;
+                count += 1;
+                weight += priority[entries[i].key];
+            }
+        }
+
+        if (sum === total) {
+            if (count > bestCount || (count === bestCount && weight > bestWeight)) {
+                bestMask = mask;
+                bestCount = count;
+                bestWeight = weight;
+            }
+        }
+    }
+
+    if (bestMask === -1) {
+        return components;
+    }
+
+    const reconciled: SubjectComponents = {
+        termWork: null,
+        oral: null,
+        external: null,
+        internal: null,
+    };
+
+    for (let i = 0; i < n; i++) {
+        if (bestMask & (1 << i)) {
+            reconciled[entries[i].key] = entries[i].value;
+        }
+    }
+
+    return reconciled;
+}
+
 function parseTotRow(content: string): { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] {
     const subjects: { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] = [];
 
@@ -453,10 +536,15 @@ function parseSubjectsFromRows(markRows: MarkRows): Subject[] {
         const code = SUBJECT_CODES[i];
 
         // Get component marks if available
-        const termWork = markRows.T1 && markRows.T1[i] !== undefined ? markRows.T1[i] : null;
-        const oral = markRows.O1 && markRows.O1[i] !== undefined ? markRows.O1[i] : null;
-        const external = markRows.E1 && markRows.E1[i] !== undefined ? markRows.E1[i] : null;
-        const internal = markRows.I1 && markRows.I1[i] !== undefined ? markRows.I1[i] : null;
+        const rawComponents: SubjectComponents = {
+            termWork: markRows.T1 && markRows.T1[i] !== undefined ? markRows.T1[i] : null,
+            oral: markRows.O1 && markRows.O1[i] !== undefined ? markRows.O1[i] : null,
+            external: markRows.E1 && markRows.E1[i] !== undefined ? markRows.E1[i] : null,
+            internal: markRows.I1 && markRows.I1[i] !== undefined ? markRows.I1[i] : null,
+        };
+
+        const reconciledComponents = reconcileComponentsWithTotal(rawComponents, totData.total);
+        const { termWork, oral, external, internal } = reconciledComponents;
 
         const subject: Subject = {
             code,
