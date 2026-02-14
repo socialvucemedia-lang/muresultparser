@@ -6,7 +6,6 @@
 import type {
     StudentRecord,
     Subject,
-    SubjectMarks,
     RawStudentBlock,
     SubjectMapping,
     KTType,
@@ -195,11 +194,9 @@ function parseHeaderLine(lines: string[], pendingErn?: string): {
     const seatNumber = seatMatch[1];
 
     // Find the part after seat number
-    let afterSeat = firstLine.substring(seatMatch[0].length).trim();
+    const afterSeat = firstLine.substring(seatMatch[0].length).trim();
 
     // Look for name in subsequent lines if first line is just the seat number
-    let nameLine = afterSeat;
-
     // The name is usually after the first line with seat number
     // Look for patterns like "1402781    DISHA ATMARAM MASAYE    Regular    FEMALE    ..."
 
@@ -228,53 +225,18 @@ function parseHeaderLine(lines: string[], pendingErn?: string): {
         }
     }
 
-    // Extract ERN - strictly require MU prefix + exactly 16 digits
-    // ERN format: MU0341120250220778 (MU + 16 digits = 18 chars total)
+    // Extract ERN from header region only (avoid consuming trailing ERN from next student block).
+    // ERN format: MU + 16 digits.
     let ern: string | null = null;
+    const headerWindow = lines.slice(0, Math.min(lines.length, 10)).join(' ');
+    const compactHeaderWindow = headerWindow.replace(/\s+/g, '');
 
-    // Search lines in the block for ERN (limit to first 5 lines where header info lives)
-    for (let i = 0; i < Math.min(lines.length, 5) && !ern; i++) {
-        const line = lines[i];
-
-        // Pattern 1: Full ERN in parentheses (MU0341120250220778)
-        const fullMatch = line.match(/\((MU\d{16})\)/);
-        if (fullMatch && isValidErn(fullMatch[1])) {
-            ern = fullMatch[1];
-            break;
-        }
-
-        // Pattern 2: ERN with opening paren but no closing: (MU0341120250220778
-        const openMatch = line.match(/\((MU\d{16})(?:\s|$)/);
-        if (openMatch && isValidErn(openMatch[1])) {
-            ern = openMatch[1];
-            break;
-        }
-
-        // Pattern 3: Cross-line ERN assembly
-        // PDF sometimes splits "(MU03411" on line N and "20250220778)" on line N+1
-        const partialMatch = line.match(/\((MU\d{1,15})\s*$/);
-        if (partialMatch && i + 1 < lines.length) {
-            const nextLine = lines[i + 1].trim();
-            const remainingDigits = nextLine.match(/^(\d+)\)?/);
-            if (remainingDigits) {
-                const assembled = partialMatch[1] + remainingDigits[1];
-                if (isValidErn(assembled)) {
-                    ern = assembled;
-                    break;
-                }
-            }
-        }
-    }
-
-    // If not found in first 5 lines, do a broader search (but still strict MU pattern)
-    if (!ern) {
-        for (let i = 5; i < lines.length && !ern; i++) {
-            const line = lines[i];
-            const match = line.match(/\(?(MU\d{16})\)?/);
-            if (match && isValidErn(match[1])) {
-                ern = match[1];
-                break;
-            }
+    // Handles both contiguous and whitespace-split ERNs.
+    const directErnMatch = compactHeaderWindow.match(/MU\d{16}/i);
+    if (directErnMatch) {
+        const normalizedErn = directErnMatch[0].toUpperCase();
+        if (isValidErn(normalizedErn)) {
+            ern = normalizedErn;
         }
     }
 
@@ -401,6 +363,104 @@ function parseComponentRow(content: string): number[] {
  * Parse TOT row to extract total marks, GP, grade, credits, credit points
  * Handles various formats including Repeater students with blank columns
  */
+
+function parseTotalWithGrace(totalToken: string): number {
+    // Keep displayed PDF total as-is numerically (e.g. "77+" -> 77),
+    // so exports match the source gazette values.
+    const base = parseInt(totalToken.replace(/\D/g, ''), 10);
+    return Number.isNaN(base) ? 0 : base;
+}
+
+interface SubjectComponents {
+    termWork: number | null;
+    oral: number | null;
+    external: number | null;
+    internal: number | null;
+}
+
+function reconcileComponentsWithTotal(
+    components: SubjectComponents,
+    total: number
+): SubjectComponents {
+    const empty: SubjectComponents = {
+        termWork: null,
+        oral: null,
+        external: null,
+        internal: null,
+    };
+
+    const entries: Array<{ key: keyof SubjectComponents; value: number }> = [];
+
+    (Object.keys(components) as Array<keyof SubjectComponents>).forEach((key) => {
+        const value = components[key];
+        if (value !== null) {
+            entries.push({ key, value });
+        }
+    });
+
+    if (entries.length === 0) {
+        return components;
+    }
+
+    if (entries.length === 1) {
+        return components;
+    }
+
+    const fullSum = entries.reduce((sum, e) => sum + e.value, 0);
+    if (fullSum === total) {
+        return components;
+    }
+
+    const priority: Record<keyof SubjectComponents, number> = {
+        external: 4,
+        internal: 3,
+        termWork: 2,
+        oral: 1,
+    };
+
+    let bestMask = -1;
+    let bestCount = -1;
+    let bestWeight = -1;
+
+    const n = entries.length;
+    for (let mask = 1; mask < (1 << n); mask++) {
+        let sum = 0;
+        let count = 0;
+        let weight = 0;
+
+        for (let i = 0; i < n; i++) {
+            if (mask & (1 << i)) {
+                sum += entries[i].value;
+                count += 1;
+                weight += priority[entries[i].key];
+            }
+        }
+
+        if (sum === total) {
+            if (count > bestCount || (count === bestCount && weight > bestWeight)) {
+                bestMask = mask;
+                bestCount = count;
+                bestWeight = weight;
+            }
+        }
+    }
+
+    if (bestMask === -1) {
+        // Keep parsed values when alignment is ambiguous to preserve raw PDF parsing.
+        return components;
+    }
+
+    const reconciled: SubjectComponents = { ...empty };
+
+    for (let i = 0; i < n; i++) {
+        if (bestMask & (1 << i)) {
+            reconciled[entries[i].key] = entries[i].value;
+        }
+    }
+
+    return reconciled;
+}
+
 function parseTotRow(content: string): { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] {
     const subjects: { total: number; gp: number; grade: string; credits: number; creditPoints: number }[] = [];
 
@@ -411,7 +471,7 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
     let match;
     while ((match = strictPattern.exec(content)) !== null) {
         subjects.push({
-            total: parseInt(match[1].replace('+', ''), 10),
+            total: parseTotalWithGrace(match[1]),
             gp: parseInt(match[2], 10),
             grade: match[3],
             credits: parseFloat(match[4]),
@@ -426,11 +486,11 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
 
     // Try alternative pattern for edge cases
     // Look for patterns like "36+ 4 D 2 8.0" with + marks
-    const altPattern = /(\d+)\+?\s+(\d+)\s+([ABCDFO][+]?)\s+([\d.]+)\s+([\d.]+)/g;
+    const altPattern = /(\d+\+?)\s+(\d+)\s+([ABCDFO][+]?)\s+([\d.]+)\s+([\d.]+)/g;
 
     while ((match = altPattern.exec(content)) !== null) {
         subjects.push({
-            total: parseInt(match[1], 10),
+            total: parseTotalWithGrace(match[1]),
             gp: parseInt(match[2], 10),
             grade: match[3],
             credits: parseFloat(match[4]),
@@ -445,14 +505,15 @@ function parseTotRow(content: string): { total: number; gp: number; grade: strin
         let i = 0;
         while (i < tokens.length - 4) {
             // Look for: number, number, grade letter, number, number
-            const total = parseFloat(tokens[i]?.replace('+', '') || '');
+            const rawTotalToken = tokens[i] || ''
+            const total = parseTotalWithGrace(rawTotalToken);
             const gp = parseFloat(tokens[i + 1] || '');
             const grade = tokens[i + 2];
             const credits = parseFloat(tokens[i + 3] || '');
             const creditPoints = parseFloat(tokens[i + 4] || '');
 
             // Validate: total > 0, grade is a letter
-            if (!isNaN(total) && !isNaN(gp) && /^[ABCDFO][+]?$/i.test(grade) && !isNaN(credits) && !isNaN(creditPoints)) {
+            if (rawTotalToken && !Number.isNaN(total) && !isNaN(gp) && /^[ABCDFO][+]?$/i.test(grade) && !isNaN(credits) && !isNaN(creditPoints)) {
                 subjects.push({
                     total: Math.round(total),
                     gp: Math.round(gp),
@@ -482,10 +543,15 @@ function parseSubjectsFromRows(markRows: MarkRows): Subject[] {
         const code = SUBJECT_CODES[i];
 
         // Get component marks if available
-        const termWork = markRows.T1 && markRows.T1[i] !== undefined ? markRows.T1[i] : null;
-        const oral = markRows.O1 && markRows.O1[i] !== undefined ? markRows.O1[i] : null;
-        const external = markRows.E1 && markRows.E1[i] !== undefined ? markRows.E1[i] : null;
-        const internal = markRows.I1 && markRows.I1[i] !== undefined ? markRows.I1[i] : null;
+        const rawComponents: SubjectComponents = {
+            termWork: markRows.T1 && markRows.T1[i] !== undefined ? markRows.T1[i] : null,
+            oral: markRows.O1 && markRows.O1[i] !== undefined ? markRows.O1[i] : null,
+            external: markRows.E1 && markRows.E1[i] !== undefined ? markRows.E1[i] : null,
+            internal: markRows.I1 && markRows.I1[i] !== undefined ? markRows.I1[i] : null,
+        };
+
+        const reconciledComponents = reconcileComponentsWithTotal(rawComponents, totData.total);
+        const { termWork, oral, external, internal } = reconciledComponents;
 
         const subject: Subject = {
             code,
@@ -555,35 +621,47 @@ function parseSummary(lines: string[]): {
     let cgpa: number | null = null;
 
     for (const line of lines) {
+        const normalizedLine = line.replace(/\s+/g, ' ').trim();
+
         // Check for MARKS (XXX) RESULT pattern
         // Format: MARKS    (371) PASS or MARKS    (107.0) FAIL
-        const marksResultMatch = line.match(/MARKS\s*\(?([\d.]+)\)?\s*(PASS|FAIL(?:ED)?)/i);
+        const marksResultMatch = normalizedLine.match(/MARKS\s*\(?([\d.]+)\)?\s*(PASS|FAIL(?:ED)?)/i);
         if (marksResultMatch) {
             totalMarks = parseFloat(marksResultMatch[1]);
             result = marksResultMatch[2].toUpperCase().startsWith('PASS') ? 'PASS' : 'FAILED';
+
+            // Many gazettes include SGPA at the end of the same MARKS line.
+            const trailingNumbers = normalizedLine.match(/([\d.]+)\s+([\d.]+)\s*$/);
+            if (trailingNumbers) {
+                const candidate = parseFloat(trailingNumbers[2]);
+                if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                    sgpa = candidate;
+                }
+            }
         }
 
         // Also check for (XXX) PASS/FAILED format in TOT line
-        const totResultMatch = line.match(/\(([\d.]+)\)\s*(PASS|FAIL(?:ED)?)/i);
+        const totResultMatch = normalizedLine.match(/\(([\d.]+)\)\s*(PASS|FAIL(?:ED)?)/i);
         if (totResultMatch && totalMarks === 0) {
             totalMarks = parseFloat(totResultMatch[1]);
             result = totResultMatch[2].toUpperCase().startsWith('PASS') ? 'PASS' : 'FAILED';
         }
 
-        // Find SGPA at end - typically two decimal numbers at line end
-        // Format: totalCredits totalCreditPoints SGPA or just SGPA
-        const sgpaMatches = line.match(/([\d.]+)\s*$/);
-        if (sgpaMatches) {
-            const val = parseFloat(sgpaMatches[1]);
-            // SGPA should be between 0 and 10
-            if (val <= 10 && val >= 0) {
-                // Check if this looks like SGPA (followed by nothing or end)
-                const prevMatch = line.match(/([\d.]+)\s+([\d.]+)\s*$/);
-                if (prevMatch) {
-                    sgpa = parseFloat(prevMatch[2]);
-                } else {
-                    sgpa = val;
-                }
+        // Explicit SGPA extraction for edge-case formatting.
+        const explicitSgpaMatch = normalizedLine.match(/\bSGPA\s*[:=]?\s*([\d.]+)/i);
+        if (explicitSgpaMatch) {
+            const candidate = parseFloat(explicitSgpaMatch[1]);
+            if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                sgpa = candidate;
+            }
+        }
+
+        // Capture CGPA when available in-line.
+        const explicitCgpaMatch = normalizedLine.match(/\bCGPA\s*[:=]?\s*([\d.]+)/i);
+        if (explicitCgpaMatch) {
+            const candidate = parseFloat(explicitCgpaMatch[1]);
+            if (!Number.isNaN(candidate) && candidate >= 0 && candidate <= 10) {
+                cgpa = candidate;
             }
         }
     }
