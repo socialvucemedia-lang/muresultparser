@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const PARSER_API_URL = process.env.PARSER_API_URL || 'https://result-parser-backend.vercel.app';
+const PARSER_API_URL = process.env.PARSER_API_URL || process.env.NEXT_PUBLIC_PARSER_API_URL;
 
 export async function POST(request: NextRequest) {
     try {
