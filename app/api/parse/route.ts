@@ -9,23 +9,16 @@ const PARSER_API_URL = process.env.PARSER_API_URL || process.env.NEXT_PUBLIC_PAR
 
 export async function POST(request: NextRequest) {
     try {
-        const formData = await request.formData();
-        const file = formData.get('file');
-
-        if (!file || !(file instanceof Blob)) {
-            return NextResponse.json(
-                { error: 'No PDF file provided' },
-                { status: 400 }
-            );
-        }
-
-        // Forward to FastAPI service
-        const apiFormData = new FormData();
-        apiFormData.append('file', file);
-
+        // Transparently proxy the request to FastAPI
+        // This preserves the original multipart boundary and headers from the browser
         const response = await fetch(`${PARSER_API_URL}/parse`, {
             method: 'POST',
-            body: apiFormData,
+            body: request.body,
+            headers: {
+                'content-type': request.headers.get('content-type') || '',
+            },
+            // @ts-ignore - Required for streaming bodies in Node.js fetch
+            duplex: 'half',
         });
 
         if (!response.ok) {
