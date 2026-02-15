@@ -397,7 +397,7 @@ function extractMarkRows(lines: string[]): MarkRows {
         parsedTot.length > rows.TOT.length ||
         (parsedTot.length === rows.TOT.length &&
           parsedTot.reduce((sum, s) => sum + s.total, 0) >
-            rows.TOT.reduce((sum, s) => sum + s.total, 0))
+          rows.TOT.reduce((sum, s) => sum + s.total, 0))
       ) {
         console.log(
           `[DEBUG] Found better TOT line. Content: "${totContent.substring(0, 60)}..."`,
@@ -466,8 +466,11 @@ function parseTotRow(content: string): {
   while ((match = strictPattern.exec(content)) !== null) {
     let total = parseInt(match[1].replace("+", ""), 10);
     if (match[2]) {
-      const grace = parseInt(match[2].match(/@(\d+)/)[1], 10);
-      total += grace;
+      const graceMatch = match[2].match(/@(\d+)/);
+      if (graceMatch) {
+        const grace = parseInt(graceMatch[1], 10);
+        total += grace;
+      }
     }
     subjects.push({
       total,
@@ -491,8 +494,11 @@ function parseTotRow(content: string): {
   while ((match = altPattern.exec(content)) !== null) {
     let total = parseInt(match[1], 10);
     if (match[2]) {
-      const grace = parseInt(match[2].match(/@(\d+)/)[1], 10);
-      total += grace;
+      const graceMatch = match[2].match(/@(\d+)/);
+      if (graceMatch) {
+        const grace = parseInt(graceMatch[1], 10);
+        total += grace;
+      }
     }
     subjects.push({
       total,
