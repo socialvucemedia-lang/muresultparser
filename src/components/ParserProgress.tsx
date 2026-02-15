@@ -22,9 +22,9 @@ export function ParserProgress({ progress, onCancel }: ParserProgressProps) {
 
     const statusMessages: Record<string, string> = {
         loading: 'Preparing document...',
-        extracting: 'Reading PDF content...',
-        parsing: 'Identifying student records...',
-        analyzing: 'Calculating statistics...',
+        extracting: 'Uploading PDF to parser...',
+        parsing: 'Processing document...',
+        analyzing: 'Waiting for results...',
         complete: 'Processing complete!',
         error: 'Processing failed',
         cancelled: 'Operation cancelled',
