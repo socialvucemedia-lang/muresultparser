@@ -165,6 +165,7 @@ export default function ResultPage() {
         <div className="container mx-auto px-4 py-8 text-center">
           <div className="flex justify-center items-center gap-6 mb-4 text-sm font-medium text-muted-foreground">
             <Link href="/about" className="hover:text-primary transition-colors">About Project</Link>
+            <Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link>
             <Link href="/terms" className="hover:text-primary transition-colors">Terms of Use</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
           </div>
