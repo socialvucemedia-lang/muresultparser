@@ -6,6 +6,7 @@
 
 import { FileText, GraduationCap, Heart, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import Script from 'next/script';
 import { useParser } from '@/src/hooks/useParser';
 import { UploadZone } from '@/src/components/UploadZone';
 import { ParserProgress } from '@/src/components/ParserProgress';
@@ -14,10 +15,6 @@ import { ResultsPreview } from '@/src/components/ResultsPreview';
 import { SummaryPanel } from '@/src/components/SummaryPanel';
 import { JsonExportButton } from '@/src/components/JsonExportButton';
 import { ExportButton } from '@/src/components/ExportButton';
-
-// ... existing imports ...
-
-
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function PdfParserPage() {
@@ -42,6 +39,20 @@ export default function PdfParserPage() {
 
     return (
         <div className="min-h-screen bg-background font-sans antialiased selection:bg-primary/10 selection:text-primary">
+            {/* Google Analytics */}
+            <Script
+                src="https://www.googletagmanager.com/gtag/js?id=G-D45V58EZJ3"
+                strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+                {`
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+                    gtag('config', 'G-D45V58EZJ3');
+                `}
+            </Script>
+
             {/* Background Pattern */}
             <div className="fixed inset-0 -z-10 h-full w-full bg-background [background:radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] dark:[background:radial-gradient(#1f2937_1px,transparent_1px)]"></div>
 
