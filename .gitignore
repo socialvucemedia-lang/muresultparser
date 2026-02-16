@@ -9,8 +9,8 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-#/parser-api
-#/camelot-prototype
+/parser-api
+/camelot-prototype
 # testing
 /coverage
 
