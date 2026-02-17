@@ -1,4 +1,0 @@
-camelot-py[cv]
-pandas
-openpyxl
-tabulate
