@@ -7,6 +7,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { StudentRecord } from '@/src/types/student';
 import { searchByERN, validateERN, preloadResults } from '@/src/lib/resultFetcher';
+import { DEFAULT_BRANCH } from '@/src/config/branches';
 
 /**
  * Lookup state
@@ -58,7 +59,7 @@ export function useResultLookup(): UseResultLookupReturn {
     /**
      * Search for student by ERN
      */
-    const search = useCallback(async (ern: string, branchId: string = 'all'): Promise<void> => {
+    const search = useCallback(async (ern: string, branchId: string = DEFAULT_BRANCH): Promise<void> => {
         // Validate first
         const validationError = validateERN(ern);
         if (validationError) {
