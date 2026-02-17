@@ -9,11 +9,10 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/parser-api
-/camelot-prototype
+
 # testing
 /coverage
-
+/parser-api
 # next.js
 /.next/
 /out/
