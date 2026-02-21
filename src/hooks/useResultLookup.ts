@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { StudentRecord } from '@/src/types/student';
-import { searchByERN, validateERN, preloadResults } from '@/src/lib/resultFetcher';
+import { searchStudent, validateSearchQuery, preloadResults } from '@/src/lib/resultFetcher';
 import { DEFAULT_BRANCH } from '@/src/config/branches';
 
 /**
@@ -17,16 +17,16 @@ export interface LookupState {
     error: string | null;
     student: StudentRecord | null;
     searched: boolean;
-    searchedERN: string;
+    searchedQuery: string;
 }
 
 /**
  * Lookup actions
  */
 export interface LookupActions {
-    search: (ern: string, branchId?: string) => Promise<void>;
+    search: (query: string, branchId?: string) => Promise<void>;
     reset: () => void;
-    validate: (ern: string) => string | null;
+    validate: (query: string) => string | null;
 }
 
 /**
@@ -42,7 +42,7 @@ const initialState: LookupState = {
     error: null,
     student: null,
     searched: false,
-    searchedERN: '',
+    searchedQuery: '',
 };
 
 /**
@@ -57,18 +57,18 @@ export function useResultLookup(): UseResultLookupReturn {
     }, []);
 
     /**
-     * Search for student by ERN
+     * Search for student by query
      */
-    const search = useCallback(async (ern: string, branchId: string = DEFAULT_BRANCH): Promise<void> => {
+    const search = useCallback(async (query: string, branchId: string = DEFAULT_BRANCH): Promise<void> => {
         // Validate first
-        const validationError = validateERN(ern);
+        const validationError = validateSearchQuery(query);
         if (validationError) {
             setState({
                 isLoading: false,
                 error: validationError,
                 student: null,
                 searched: true,
-                searchedERN: ern,
+                searchedQuery: query,
             });
             return;
         }
@@ -81,7 +81,7 @@ export function useResultLookup(): UseResultLookupReturn {
         }));
 
         try {
-            const result = await searchByERN(ern, branchId);
+            const result = await searchStudent(query, branchId);
 
             if (result.found && result.student) {
                 setState({
@@ -89,15 +89,15 @@ export function useResultLookup(): UseResultLookupReturn {
                     error: null,
                     student: result.student,
                     searched: true,
-                    searchedERN: result.ern,
+                    searchedQuery: result.query,
                 });
             } else {
                 setState({
                     isLoading: false,
-                    error: `No result found for ERN: ${result.ern} in ${branchId === 'all' ? 'any file' : 'selected branch'}. Please check the number and try again.`,
+                    error: `No result found for query: ${result.query} in ${branchId === 'all' ? 'any file' : 'selected branch'}. Please check the number and try again.`,
                     student: null,
                     searched: true,
-                    searchedERN: result.ern,
+                    searchedQuery: result.query,
                 });
             }
         } catch (error) {
@@ -110,7 +110,7 @@ export function useResultLookup(): UseResultLookupReturn {
                 error: errorMessage,
                 student: null,
                 searched: true,
-                searchedERN: ern,
+                searchedQuery: query,
             });
         }
     }, []);
@@ -123,10 +123,10 @@ export function useResultLookup(): UseResultLookupReturn {
     }, []);
 
     /**
-     * Validate ERN
+     * Validate query
      */
-    const validate = useCallback((ern: string): string | null => {
-        return validateERN(ern);
+    const validate = useCallback((query: string): string | null => {
+        return validateSearchQuery(query);
     }, []);
 
     // Memoize return value

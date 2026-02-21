@@ -74,38 +74,38 @@ export async function fetchResults(branchId: string = DEFAULT_BRANCH): Promise<R
 export interface SearchResult {
     found: boolean;
     student: StudentRecord | null;
-    ern: string;
+    query: string;
 }
 
 /**
- * Searches for a student by ERN in a specific branch
+ * Searches for a student by ERN or Seat Number in a specific branch
  */
-export async function searchByERN(ern: string, branchId: string = DEFAULT_BRANCH): Promise<SearchResult> {
-    if (!ern || !ern.trim()) {
-        return { found: false, student: null, ern };
+export async function searchStudent(query: string, branchId: string = DEFAULT_BRANCH): Promise<SearchResult> {
+    if (!query || !query.trim()) {
+        return { found: false, student: null, query };
     }
 
-    const normalizedERN = ern.trim().toUpperCase();
+    const normalizedQuery = query.trim().toUpperCase();
 
     try {
         const results = await fetchResults(branchId);
 
         // Direct lookup by ERN key
-        if (results[normalizedERN]) {
+        if (results[normalizedQuery]) {
             return {
                 found: true,
-                student: results[normalizedERN],
-                ern: normalizedERN,
+                student: results[normalizedQuery],
+                query: normalizedQuery,
             };
         }
 
-        // Fallback: search by ern field (in case keys differ)
+        // Fallback: search by ern or seatNumber field
         for (const [key, student] of Object.entries(results)) {
-            if (student.ern?.toUpperCase() === normalizedERN) {
+            if (student.ern?.toUpperCase() === normalizedQuery || student.seatNumber?.toUpperCase() === normalizedQuery) {
                 return {
                     found: true,
                     student,
-                    ern: key,
+                    query: normalizedQuery,
                 };
             }
         }
@@ -113,27 +113,36 @@ export async function searchByERN(ern: string, branchId: string = DEFAULT_BRANCH
         console.error('Search failed:', error);
     }
 
-    return { found: false, student: null, ern: normalizedERN };
+    return { found: false, student: null, query: normalizedQuery };
 }
 
 /**
- * Validates ERN format
+ * Validates search query format
  * Returns null if valid, error message if invalid
  */
-export function validateERN(ern: string): string | null {
-    if (!ern || !ern.trim()) {
-        return 'Please enter an ERN number';
+export function validateSearchQuery(query: string): string | null {
+    if (!query || !query.trim()) {
+        return 'Please enter an ERN or Seat Number';
     }
 
-    const normalized = ern.trim();
+    const normalized = query.trim().toUpperCase();
 
-    // ERN should be alphanumeric and typically 18-20 characters
-    if (normalized.length < 10) {
-        return 'ERN seems too short. Please check and try again.';
+    if (normalized.startsWith('MU')) {
+        // ERN validation
+        if (normalized.length < 15) {
+            return 'ERN seems too short. Please check and try again.';
+        }
+    } else if (/^\d+$/.test(normalized)) {
+        // Seat Number validation - mostly digits, any length over 3 should be fine for now or adjust based on minimum seat number length you have
+        if (normalized.length < 4) {
+            return 'Seat number seems too short. Please check and try again.';
+        }
+    } else {
+        return 'Query must start with MU for ERN or contain only numbers for Seat Number.';
     }
 
-    if (!/^[A-Za-z0-9]+$/.test(normalized)) {
-        return 'ERN should only contain letters and numbers';
+    if (!/^[A-Z0-9]+$/.test(normalized)) {
+        return 'Query should only contain letters and numbers';
     }
 
     return null;

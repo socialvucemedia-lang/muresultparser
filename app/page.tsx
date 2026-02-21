@@ -2,7 +2,7 @@
 
 /**
  * Student Result Lookup Page
- * Allows students to search their results by ERN
+ * Allows students to search their results by ERN or Seat Number
  */
 
 import { GraduationCap, Search, AlertCircle } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 
 import { useResultLookup } from '@/src/hooks/useResultLookup';
-import { ERNSearch } from '@/src/components/result/ERNSearch';
+import { ResultSearch } from '@/src/components/result/ResultSearch';
 import { StudentSummary } from '@/src/components/result/StudentSummary';
 import { SubjectsTable } from '@/src/components/result/SubjectsTable';
 import { ResultAnalysis } from '@/src/components/result/ResultAnalysis';
@@ -26,6 +26,7 @@ export default function ResultPage() {
     error,
     student,
     searched,
+    searchedQuery,
     search,
     reset,
   } = useResultLookup();
@@ -70,13 +71,13 @@ export default function ResultPage() {
             Check Your Results
           </h1>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Instant access to your academic performance. Enter your ERN below to see detailed subject marks and analysis.
+            Instant access to your academic performance. Enter your ERN or Seat Number below to see detailed subject marks and analysis.
           </p>
         </section>
 
         {/* Search Section */}
         <section className="mb-12 relative z-20">
-          <ERNSearch
+          <ResultSearch
             onSearch={search}
             onReset={reset}
             isLoading={isLoading}
@@ -148,7 +149,7 @@ export default function ResultPage() {
                   Ready to Search
                 </h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-8">
-                  Enter your ERN number above to instantly view your complete semester
+                  Enter your ERN or Seat Number above to instantly view your complete semester
                   results including subject-wise marks and KT analysis.
                 </p>
 
@@ -169,9 +170,21 @@ export default function ResultPage() {
             <Link href="/terms" className="hover:text-primary transition-colors">Terms of Use</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
           </div>
-          <p className="text-xs text-muted-foreground/60">
-            owned by vuce & is a property of vuce.
-          </p>
+          <div className="mt-8 flex items-center justify-center">
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-primary/10 bg-primary/5 text-sm shadow-sm backdrop-blur-md transition-all hover:bg-primary/10 hover:shadow-md hover:border-primary/20">
+              <span className="text-muted-foreground font-medium">A product of</span>
+              <Link
+                href="https://vuce.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600 hover:opacity-80 transition-opacity"
+              >
+                vuce.in
+              </Link>
+              <span className="text-muted-foreground/30 mx-1">|</span>
+              <span className="text-muted-foreground font-medium">Owned by vuce</span>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
