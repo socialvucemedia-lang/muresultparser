@@ -76,7 +76,7 @@ export default function TermsPage() {
 
                     <section className="rounded-2xl border bg-card/50 p-6 shadow-sm ring-1 ring-border/50">
                         <p className="text-sm text-center text-muted-foreground">
-                            By using this tool, you acknowledge that you have read and understood these terms. For any technical queries, contact the RGIT student development team.
+                            By using this tool, you acknowledge that you have read and understood these terms. This tool is owned by vuce & is a property of vuce.
                         </p>
                     </section>
                 </div>
@@ -85,7 +85,7 @@ export default function TermsPage() {
             <footer className="mt-20 border-t bg-muted/30 py-12">
                 <div className="container mx-auto max-w-5xl px-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                        &copy; {new Date().getFullYear()} RGIT Academic Tools. Designed for educational use.
+                        &copy; {new Date().getFullYear()} vuce. This tool is owned by vuce & is a property of vuce.
                     </p>
                 </div>
             </footer>

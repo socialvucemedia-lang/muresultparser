@@ -107,7 +107,7 @@ export default function ContactPage() {
             <footer className="mt-20 border-t bg-muted/30 py-12">
                 <div className="container mx-auto max-w-5xl px-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                        &copy; {new Date().getFullYear()} RGIT Academic Tools. Proudly developed by the 2026 Batch.
+                        &copy; {new Date().getFullYear()} vuce. This tool is owned by vuce & is a property of vuce.
                     </p>
                 </div>
             </footer>

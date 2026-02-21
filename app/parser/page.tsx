@@ -179,7 +179,10 @@ export default function PdfParserPage() {
                                 <span className="font-semibold tracking-tight text-foreground">Mumbai University Result's Parser</span>
                             </div>
                             <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                Made by students of <span className="font-semibold text-foreground">RGIT</span> with love <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
+                                Made by <span className="font-semibold text-foreground">vuce</span> with love <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                owned by vuce & is a property of vuce
                             </p>
                         </div>
 
@@ -194,11 +197,11 @@ export default function PdfParserPage() {
                     </div>
                     <div className="mt-8 border-t border-border/40 pt-8 text-center sm:text-left">
                         <p className="text-xs text-muted-foreground">
-                            &copy; {new Date().getFullYear()} RGIT Academic Tools. This tool processes all data locally in your browser.
+                            &copy; {new Date().getFullYear()} vuce. This tool is owned by vuce & is a property of vuce.
                         </p>
                     </div>
                 </div>
-            </footer>
-        </div>
+            </footer >
+        </div >
     );
 }

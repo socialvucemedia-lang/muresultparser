@@ -39,7 +39,7 @@ export default function AboutPage() {
                             Empowering Students & Faculty
                         </h2>
                         <p className="text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                            Mumbai University Result's Parser was built by students of RGIT to simplify result analysis and academic tracking through intelligent automation.
+                            Mumbai University Result's Parser is owned by vuce & is a property of vuce. It was built to simplify result analysis and academic tracking through intelligent automation.
                         </p>
                     </section>
 
@@ -80,7 +80,7 @@ export default function AboutPage() {
                     <section className="space-y-12">
                         <div className="text-center space-y-4">
                             <h3 className="text-2xl font-bold tracking-tight">The Development Team</h3>
-                            <p className="text-muted-foreground">Built with passion by RGIT's engineering students.</p>
+                            <p className="text-muted-foreground">owned by vuce & is a property of vuce.</p>
                         </div>
 
                         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-1 max-w-2xl mx-auto">
@@ -96,7 +96,7 @@ export default function AboutPage() {
                                             <p className="text-sm font-bold uppercase tracking-widest text-primary mt-1">Chief Developer</p>
                                         </div>
                                         <p className="text-muted-foreground leading-relaxed">
-                                            The visionary behind these academic tools. Vedant is dedicated to building intelligent solutions for the RGIT community, specializing in automation and full-stack development.
+                                            The visionary behind these academic tools. Vedant is dedicated to building intelligent solutions for vuce, specializing in automation and full-stack development.
                                         </p>
                                     </div>
                                 </div>
@@ -110,15 +110,15 @@ export default function AboutPage() {
                         </div>
                     </section>
                 </div>
-            </main>
+            </main >
 
             <footer className="mt-20 border-t bg-muted/30 py-12">
                 <div className="container mx-auto max-w-5xl px-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                        &copy; {new Date().getFullYear()} RGIT Academic Tools. Proudly developed by the 2026 Batch.
+                        &copy; {new Date().getFullYear()} vuce. This tool is owned by vuce & is a property of vuce.
                     </p>
                 </div>
             </footer>
-        </div>
+        </div >
     );
 }

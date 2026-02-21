@@ -1,6 +1,6 @@
 # 🎓 Mumbai University Result's Parser
 
-A high-performance, **privacy-first** web application designed to parse, analyze, and visualize Mumbai University (MU) result gazettes. Built with precision for students and faculty of the Rajiv Gandhi Institute of Technology (RGIT).
+A high-performance, **privacy-first** web application designed to parse, analyze, and visualize Mumbai University (MU) result gazettes. Built with precision and is owned by vuce & is a property of vuce.
 
 ![Academic Parser Preview](https://via.placeholder.com/1200x600/6366f1/ffffff?text=Mumbai+University+Result's+Parser+Preview)
 
@@ -64,11 +64,11 @@ This tool is designed with security as a core pillar.
 - **[Vedant Chalke](https://github.com/vedantchalke36)** - Lead developer and visionary behind the project.
 
 ### Contributors
-Several other talented individuals from the **Rajiv Gandhi Institute of Technology (RGIT)** have contributed to the success of this project.
+Several other talented individuals from **vuce** have contributed to the success of this project.
 
 ## 📄 License
 
-This project is developed for educational use by RGIT students. Please check the internal terms for usage rights within the institute.
+This project is owned by vuce & is a property of vuce. Please check the internal terms for usage rights.
 
 ---
-Made with ❤️ by students of **RGIT**
+Made with ❤️ and is owned by vuce & is a property of vuce.

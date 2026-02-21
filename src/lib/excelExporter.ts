@@ -32,67 +32,151 @@ export function exportToExcel(
 }
 
 /**
- * All 14 subject codes in PDF order with their abbreviated names
+ * Column definition for each column within a subject group
  */
-const ALL_SUBJECTS = [
-    { code: '10411', abbr: 'AM-I', name: 'Applied Mathematics-I' },
-    { code: '10412', abbr: 'AP', name: 'Applied Physics' },
-    { code: '10413', abbr: 'AC', name: 'Applied Chemistry' },
-    { code: '10414', abbr: 'EM', name: 'Engineering Mechanics' },
-    { code: '10415', abbr: 'BEE', name: 'Basic Electrical & Electronics Engineering' },
-    { code: '10416', abbr: 'APL', name: 'Applied Physics Lab' },
-    { code: '10417', abbr: 'ACL', name: 'Applied Chemistry Lab' },
-    { code: '10418', abbr: 'EML', name: 'Engineering Mechanics Lab' },
-    { code: '10419', abbr: 'BEEL', name: 'Basic Electrical & Electronics Engineering Lab' },
-    { code: '10420', abbr: 'PCE', name: 'Professional Communication Ethics' },
-    { code: '10421', abbr: 'PCETW', name: 'Professional Communication Ethics TW' },
-    { code: '10422', abbr: 'EW-I', name: 'Engineering Workshop-I' },
-    { code: '10423', abbr: 'CP', name: 'C Programming' },
-    { code: '10424', abbr: 'IUHV', name: 'Induction cum Universal Human Values' },
+interface ColumnDef {
+    label: string;            // Header label (EXT, INT, TW, OR, TOTAL, RESULT)
+    sourceCode: string;       // Which subject code to pull data from
+    sourceField: keyof SubjectMarks; // Which field from marks to use
+}
+
+/**
+ * Merged subject group — a single header entry in the Excel sheet
+ * that may combine marks from a theory subject + its lab subject
+ */
+interface MergedGroup {
+    abbr: string;             // Display abbreviation (e.g. 'AP')
+    columns: ColumnDef[];     // The sub-columns for this group
+}
+
+/**
+ * Merged subject groups in university order.
+ * Lab subjects are folded into their parent theory subjects:
+ *   APL → TW in AP, ACL → TW in AC,
+ *   EML → TW+OR in EM, BEEL → TW+OR in BEE,
+ *   PCETW → TW in PCE
+ */
+const MERGED_GROUPS: MergedGroup[] = [
+    {
+        abbr: 'AM-I',
+        columns: [
+            { label: 'EXT', sourceCode: '10411', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10411', sourceField: 'internal' },
+            { label: 'TW', sourceCode: '10411', sourceField: 'termWork' },
+            { label: 'TOTAL', sourceCode: '10411', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10411', sourceField: 'status' },
+        ],
+    },
+    {
+        abbr: 'AP',
+        columns: [
+            { label: 'EXT', sourceCode: '10412', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10412', sourceField: 'internal' },
+            { label: 'TOTAL', sourceCode: '10412', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10412', sourceField: 'status' },
+            { label: 'TW', sourceCode: '10416', sourceField: 'total' },    // APL lab total → TW
+        ],
+    },
+    {
+        abbr: 'AC',
+        columns: [
+            { label: 'EXT', sourceCode: '10413', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10413', sourceField: 'internal' },
+            { label: 'TOTAL', sourceCode: '10413', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10413', sourceField: 'status' },
+            { label: 'TW', sourceCode: '10417', sourceField: 'total' },    // ACL lab total → TW
+        ],
+    },
+    {
+        abbr: 'EM',
+        columns: [
+            { label: 'EXT', sourceCode: '10414', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10414', sourceField: 'internal' },
+            { label: 'TOTAL', sourceCode: '10414', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10414', sourceField: 'status' },
+            { label: 'TW', sourceCode: '10418', sourceField: 'termWork' }, // EML lab TW
+            { label: 'OR', sourceCode: '10418', sourceField: 'oral' },     // EML lab OR
+        ],
+    },
+    {
+        abbr: 'BEE',
+        columns: [
+            { label: 'EXT', sourceCode: '10415', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10415', sourceField: 'internal' },
+            { label: 'TOTAL', sourceCode: '10415', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10415', sourceField: 'status' },
+            { label: 'TW', sourceCode: '10419', sourceField: 'termWork' }, // BEEL lab TW
+            { label: 'OR', sourceCode: '10419', sourceField: 'oral' },     // BEEL lab OR
+        ],
+    },
+    {
+        abbr: 'PCE',
+        columns: [
+            { label: 'EXT', sourceCode: '10420', sourceField: 'external' },
+            { label: 'INT', sourceCode: '10420', sourceField: 'internal' },
+            { label: 'TOTAL', sourceCode: '10420', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10420', sourceField: 'status' },
+            { label: 'TW', sourceCode: '10421', sourceField: 'total' },    // PCETW total → TW
+        ],
+    },
+    {
+        abbr: 'EW-I',
+        columns: [
+            { label: 'TW', sourceCode: '10422', sourceField: 'total' },    // Workshop TW
+        ],
+    },
+    {
+        abbr: 'CP',
+        columns: [
+            { label: 'TW', sourceCode: '10423', sourceField: 'termWork' },
+            { label: 'OR', sourceCode: '10423', sourceField: 'oral' },
+            { label: 'TOTAL', sourceCode: '10423', sourceField: 'total' },
+            { label: 'RESULT', sourceCode: '10423', sourceField: 'status' },
+        ],
+    },
 ];
 
 /**
- * Standardized component labels for each subject
+ * Look up a marks field value from a student's subject list
  */
-const COMPONENT_LABELS = ['EXT', 'INT', 'TW', 'OR', 'TOTAL', 'GRADE', 'GP', 'CREDITS', 'RESULT'] as const;
+function getMarksValue(
+    student: StudentRecord,
+    subjectCode: string,
+    field: keyof SubjectMarks
+): string | number {
+    const subj = student.subjects.find(s => s.code === subjectCode);
+    if (!subj) return '';
+    const val = subj.marks[field];
+    if (val === null || val === undefined) return '';
+    return val;
+}
 
 /**
  * Create the main students data sheet with two-row grouped headers
- * Format: Header Row 1 = Subject names (merged), Header Row 2 = Component labels
+ * Format: Header Row 1 = Subject group names (merged), Header Row 2 = Component labels
  */
 function createStudentSheet(students: StudentRecord[]): XLSX.WorkSheet {
     if (!students || students.length === 0) {
         return XLSX.utils.aoa_to_sheet([['No data available']]);
     }
 
-    // ── Build Header Row 1 (Subject Groups) ──────────────────────────
-    const headerRow1: string[] = [
-        'Seat No',
-        'Student Name',
-        'Status',
-        'Gender',
-        'ERN',
-    ];
+    const INFO_COLS = ['Seat No', 'Student Name'];
+
+    // ── Build Header Row 1 (Subject Group Names) ─────────────────────
+    const headerRow1: string[] = [...INFO_COLS];
 
     // ── Build Header Row 2 (Component Labels) ────────────────────────
-    const headerRow2: string[] = [
-        '', // align with Seat No
-        '', // align with Student Name
-        '', // align with Status
-        '', // align with Gender
-        '', // align with ERN
-    ];
+    const headerRow2: string[] = INFO_COLS.map(() => '');
 
-    // Add subject groups - each subject spans 9 columns
-    ALL_SUBJECTS.forEach(subj => {
-        // Header Row 1: Subject name appears once, then 8 empty cells for span
-        headerRow1.push(subj.abbr, '', '', '', '', '', '', '', '');
-
-        // Header Row 2: Component labels
-        headerRow2.push(...COMPONENT_LABELS);
+    // Add merged subject groups with variable column counts
+    MERGED_GROUPS.forEach(group => {
+        // Row 1: group name + empty cells for span
+        headerRow1.push(group.abbr, ...Array(group.columns.length - 1).fill(''));
+        // Row 2: column labels
+        headerRow2.push(...group.columns.map(c => c.label));
     });
 
-    // Add summary columns at the end
+    // Summary columns at the end
     headerRow1.push('TOTAL', 'SGPA', 'RESULT');
     headerRow2.push('', '', '');
 
@@ -101,27 +185,13 @@ function createStudentSheet(students: StudentRecord[]): XLSX.WorkSheet {
         const row: (string | number)[] = [
             student.seatNumber || '',
             student.name || '',
-            student.status || '',
-            student.gender || '',
-            student.ern || '',
         ];
 
-        // Per-subject marks (9 columns each)
-        ALL_SUBJECTS.forEach(subjDef => {
-            const subj = student.subjects.find(s => s.code === subjDef.code);
-            const marks = subj?.marks;
-
-            row.push(
-                marks?.external ?? '',       // EXT
-                marks?.internal ?? '',       // INT
-                marks?.termWork ?? '',       // TW
-                marks?.oral ?? '',           // OR
-                marks?.total ?? '',          // TOTAL
-                marks?.grade || '',          // GRADE
-                marks?.gradePoint ?? '',     // GP
-                marks?.credits ?? '',        // CREDITS
-                marks?.status || '',         // RESULT (P/F)
-            );
+        // Per-group marks (variable columns)
+        MERGED_GROUPS.forEach(group => {
+            group.columns.forEach(col => {
+                row.push(getMarksValue(student, col.sourceCode, col.sourceField));
+            });
         });
 
         // Summary columns
@@ -137,34 +207,35 @@ function createStudentSheet(students: StudentRecord[]): XLSX.WorkSheet {
     // ── Create Worksheet ──────────────────────────────────────────────
     const ws = XLSX.utils.aoa_to_sheet([headerRow1, headerRow2, ...dataRows]);
 
-    // ── Add Cell Merges for Subject Groups ───────────────────────────
+    // ── Add Cell Merges ──────────────────────────────────────────────
     const merges: XLSX.Range[] = [];
+    const infoColCount = INFO_COLS.length;
 
-    // Merge student info cells in row 1
-    merges.push(
-        { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // Seat No
-        { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // Student Name
-        { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } }, // Status
-        { s: { r: 0, c: 3 }, e: { r: 1, c: 3 } }, // Gender
-        { s: { r: 0, c: 4 }, e: { r: 1, c: 4 } }, // ERN
-    );
+    // Merge student info cells vertically (span row 1 + row 2)
+    for (let c = 0; c < infoColCount; c++) {
+        merges.push({ s: { r: 0, c }, e: { r: 1, c } });
+    }
 
-    // Merge each subject name across its 9 component columns
-    let colIndex = 5; // Start after student info columns
-    ALL_SUBJECTS.forEach(() => {
-        merges.push({
-            s: { r: 0, c: colIndex },     // Start column
-            e: { r: 0, c: colIndex + 8 }, // End column (9 cols total)
-        });
-        colIndex += 9;
+    // Merge each subject group name horizontally across its columns
+    let colIndex = infoColCount;
+    MERGED_GROUPS.forEach(group => {
+        const span = group.columns.length;
+        if (span > 1) {
+            merges.push({
+                s: { r: 0, c: colIndex },
+                e: { r: 0, c: colIndex + span - 1 },
+            });
+        } else {
+            // Single-column groups: merge vertically instead
+            merges.push({ s: { r: 0, c: colIndex }, e: { r: 1, c: colIndex } });
+        }
+        colIndex += span;
     });
 
-    // Merge summary columns in row 1
-    merges.push(
-        { s: { r: 0, c: colIndex }, e: { r: 1, c: colIndex } },     // TOTAL
-        { s: { r: 0, c: colIndex + 1 }, e: { r: 1, c: colIndex + 1 } }, // SGPA
-        { s: { r: 0, c: colIndex + 2 }, e: { r: 1, c: colIndex + 2 } }, // RESULT
-    );
+    // Merge summary columns vertically
+    for (let i = 0; i < 3; i++) {
+        merges.push({ s: { r: 0, c: colIndex + i }, e: { r: 1, c: colIndex + i } });
+    }
 
     ws['!merges'] = merges;
 
@@ -172,32 +243,20 @@ function createStudentSheet(students: StudentRecord[]): XLSX.WorkSheet {
     const colWidths: XLSX.ColInfo[] = [
         { wch: 10 },  // Seat No
         { wch: 25 },  // Student Name
-        { wch: 10 },  // Status
-        { wch: 8 },   // Gender
-        { wch: 20 },  // ERN
     ];
 
-    // Each subject has 9 columns
-    ALL_SUBJECTS.forEach(() => {
-        colWidths.push(
-            { wch: 7 },   // EXT
-            { wch: 7 },   // INT
-            { wch: 7 },   // TW
-            { wch: 7 },   // OR
-            { wch: 8 },   // TOTAL
-            { wch: 8 },   // GRADE
-            { wch: 7 },   // GP
-            { wch: 9 },   // CREDITS
-            { wch: 8 },   // RESULT
-        );
+    // Each column in each group
+    MERGED_GROUPS.forEach(group => {
+        group.columns.forEach(col => {
+            const w = col.label === 'TOTAL' ? 8
+                : col.label === 'RESULT' ? 8
+                    : 7;
+            colWidths.push({ wch: w });
+        });
     });
 
     // Summary columns
-    colWidths.push(
-        { wch: 10 },  // TOTAL
-        { wch: 8 },   // SGPA
-        { wch: 10 },  // RESULT
-    );
+    colWidths.push({ wch: 10 }, { wch: 8 }, { wch: 10 });
 
     ws['!cols'] = colWidths;
 

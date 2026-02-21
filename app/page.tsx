@@ -170,7 +170,7 @@ export default function ResultPage() {
             <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
           </div>
           <p className="text-xs text-muted-foreground/60">
-            Built with ❤️ by RGIT Students for the Community.
+            owned by vuce & is a property of vuce.
           </p>
         </div>
       </footer>

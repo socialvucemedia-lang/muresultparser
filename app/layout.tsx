@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Mumbai University Result's Parser",
-  description: "Made with ❤️ by students of RGIT. Analyze university results instantly.",
+  description: "owned by vuce & is a property of vuce. Analyze university results instantly.",
 };
 
 export default function RootLayout({
