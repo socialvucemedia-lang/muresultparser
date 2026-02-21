@@ -12,4 +12,4 @@ export const BRANCHES: Branch[] = [
     { id: 'aids', name: 'AI & Data Science', file: 'aids.json' },
 ];
 
-export const DEFAULT_BRANCH = 'aids';
+export const DEFAULT_BRANCH = 'comps';
