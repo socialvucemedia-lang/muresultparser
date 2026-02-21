@@ -5,7 +5,7 @@ export interface Branch {
 }
 
 export const BRANCHES: Branch[] = [
-    //{ id: 'comps', name: 'Computer Engineering', file: 'computer.json' },
+    { id: 'comps', name: 'Computer Engineering', file: 'computer.json' },
     //{ id: 'it', name: 'Information Technology', file: 'it.json' },
     //{ id: 'extc', name: 'Electronics & Telecommunication', file: 'extc.json' },
     { id: 'mech', name: 'Mechanical Engineering', file: 'mechanical.json' },
